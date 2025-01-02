@@ -13,18 +13,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  ////////////////////////////
+  //generate 30 tile objects
   const tiles = [];
 
-  //generate 30 tile objects
   function tileMaker(n, array) {
     for (let i = 1; i <= n; i++) {
       tiles[i - 1] = new Tile(i);
     }
     return tiles;
   }
-
   tileMaker(30, tiles);
 
+  ////////////////////////////
   //image shuffle
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -34,61 +35,72 @@ document.addEventListener("DOMContentLoaded", () => {
     return arr;
   }
 
+  ////////////////////////////
+  // image pairs
   let ImgArray = [1, 2, 3, 4, 5, 6];
+  const ImgArrayLevel1 = [];
+  const ImgArrayLevel2 = [];
+  const ImgArrayLevel3 = [];
+
   let pairOccurence = [2, 4, 4, 6, 6, 8];
 
-  // image pairs
-  function imagePairMaker(arr, occurance) {
-    let ImgPairArray = [];
+  function imagePairMaker(arr, occurance, output) {
     occurance = shuffle([...occurance]);
 
     for (let i = 0; i < arr.length; i++) {
       for (let x = 0; x < occurance[i]; x++) {
-        ImgPairArray.push(arr[i]);
+        output.push(arr[i]);
       }
     }
-    return ImgPairArray;
+
+    return shuffle(output);
   }
 
-  console.log(imagePairMaker(ImgArray, pairOccurence));
+  imagePairMaker(ImgArray, pairOccurence, ImgArrayLevel1);
+  imagePairMaker(ImgArray, pairOccurence, ImgArrayLevel2);
+  imagePairMaker(ImgArray, pairOccurence, ImgArrayLevel3);
+
+  for (let i = 0; i < tiles.length; i++) {
+    tiles[i].layer1.imgURL += ImgArrayLevel1[i];
+    tiles[i].layer1.imgURL += ".png";
+
+    tiles[i].layer2.imgURL += ImgArrayLevel2[i];
+    tiles[i].layer2.imgURL += ".png";
+
+    tiles[i].layer3.imgURL += ImgArrayLevel3[i];
+    tiles[i].layer3.imgURL += ".png";
+  }
+  console.log(tiles);
 
   //   //////////////////////////////////////////////////
   //   //// SELECTOR /////
-  //   const grid = document.querySelector(".grid");
+  const grid = document.querySelector(".grid");
 
-  //   //////////////////////////////////////////////////
-  //// ARRAYS /////
-  let layersChosen = [];
-  let squaresChosen = [];
-  let layersFound = [];
-
+  //   /////////////////////////////////////////////////
   //create the board
   function createBoard() {
     for (let i = 0; i < tiles.length; i++) {
       const square = document.createElement("div");
 
       square.innerHTML += `
-            <div class="layer" data-layer-name="${tileArray1[random].name}" data-layer-type="one">
-              <img src="${tileArray1[random].img}" class="image" />
+            <div class="layer" data-layer-name="${tiles[i].id}" data-layer-type="one">
+              <img src="${tiles[i].layer1.imgURL}" class="image" />
             </div>
-            <div class="layer" data-layer-name="${tileArray2[random].name}" data-layer-type="two">
-              <img src="${tileArray2[random].img}" class="image" />
+            <div class="layer" data-layer-name="${tiles[i].id}" data-layer-type="two">
+              <img src="${tiles[i].layer2.imgURL}" class="image" />
             </div>
-            <div class="layer" data-layer-name="${tileArray3[random].name}" data-layer-type="three">
-              <img src="${tileArray3[random].img}" class="image" />
+            <div class="layer" data-layer-name="${tiles[i].id}" data-layer-type="three">
+              <img src="${tiles[i].layer3.imgURL}" class="image" />
             </div>
         `;
       square.setAttribute("class", "square");
       square.setAttribute("id", i);
-
-      tileArray1.sort(() => 0.5 - Math.random());
-      tileArray2.sort(() => 0.5 - Math.random());
-      tileArray3.sort(() => 0.5 - Math.random());
-      square.addEventListener("click", selectTile);
+      // square.addEventListener("click", selectTile);
       grid.appendChild(square);
     }
   }
 
+  createBoard();
   //   //////////////////////////////////////////////////
   //   //// FUNCTION /////
   //   //check array for matches
