@@ -2,31 +2,81 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   //////////////////////////////////////////////////
-  //// Cards /////
+  //// SELECTOR /////
+  const grid = document.querySelector(".grid");
+
+  //////////////////////////////////////////////////
+  //// Tiles /////
 
   class Tile {
     constructor(id) {
       this.id = id; //based on grid order
-      this.layer1 = { level: 1, imgURL: "images/level1/", matched: false };
-      this.layer2 = { level: 2, imgURL: "images/level2/", matched: false };
-      this.layer3 = { level: 3, imgURL: "images/level3/", matched: false };
+      this.layers = [
+        { level: 1, imgURL: "images/level1/", matched: false },
+        { level: 2, imgURL: "images/level2/", matched: false },
+        { level: 3, imgURL: "images/level3/", matched: false },
+      ];
+
+      this.background = 1;
+      this.tileSelect = document.getElementById(id);
+      this.current = false;
+      this.highlight = false;
+    }
+
+    attachEventHandlers() {
+      this.tileSelect.addEventListener("click", this.handleClick.bind(this));
+    }
+
+    handleClick(event) {
+      board.clearHighlight();
+      this.highlight = true;
+      this.renderHighlight();
+
+      this.current = true;
+    }
+    renderHighlight() {
+      this.tileSelect.classList.add("currentTile"); ///add highlight to current square
     }
   }
 
   ////////////////////////////
   //generate 30 tile objects
-  const tiles = [];
 
-  function tileMaker(n, array) {
-    for (let i = 1; i <= n; i++) {
-      tiles[i - 1] = new Tile(i);
-    }
-    return tiles;
-  }
-  tileMaker(30, tiles);
+  const board = {
+    width: 5,
+    height: 6,
+
+    tiles: [],
+    matchedLayers: [],
+    get size() {
+      return this.width * this.height;
+    },
+
+    boardInitialiser: function () {
+      for (let i = 1; i <= this.size; i++) {
+        this.tiles[i - 1] = new Tile(i);
+      }
+      return this.tiles;
+    },
+
+    clearHighlight: function () {
+      for (let i = 0; i < this.tiles.length; i++) {
+        if (this.tiles[i].highlight === true) {
+          this.tiles[i].highlight === false;
+          document.getElementById(i).classList.remove("currentTile");
+          console.log("highlight");
+        }
+      }
+    },
+
+    // setBackground: function () {}
+  };
+  board.boardInitialiser();
+
+  // console.log(board.tiles);
 
   ////////////////////////////
-  //image shuffle
+  // shuffle
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -38,69 +88,57 @@ document.addEventListener("DOMContentLoaded", () => {
   ////////////////////////////
   // image pairs
   let ImgArray = [1, 2, 3, 4, 5, 6];
-  const ImgArrayLevel1 = [];
-  const ImgArrayLevel2 = [];
-  const ImgArrayLevel3 = [];
-
   let pairOccurence = [2, 4, 4, 6, 6, 8];
+  const ImgArrayPaired = [];
 
   function imagePairMaker(arr, occurance, output) {
     occurance = shuffle([...occurance]);
-
     for (let i = 0; i < arr.length; i++) {
       for (let x = 0; x < occurance[i]; x++) {
         output.push(arr[i]);
       }
     }
-
     return shuffle(output);
   }
 
-  imagePairMaker(ImgArray, pairOccurence, ImgArrayLevel1);
-  imagePairMaker(ImgArray, pairOccurence, ImgArrayLevel2);
-  imagePairMaker(ImgArray, pairOccurence, ImgArrayLevel3);
-
-  for (let i = 0; i < tiles.length; i++) {
-    tiles[i].layer1.imgURL += ImgArrayLevel1[i];
-    tiles[i].layer1.imgURL += ".png";
-
-    tiles[i].layer2.imgURL += ImgArrayLevel2[i];
-    tiles[i].layer2.imgURL += ".png";
-
-    tiles[i].layer3.imgURL += ImgArrayLevel3[i];
-    tiles[i].layer3.imgURL += ".png";
+  function assignImages(layer, source) {
+    for (let i = 0; i < board.tiles.length; i++) {
+      board.tiles[i].layers[layer].imgURL += source[i];
+      board.tiles[i].layers[layer].imgURL += ".png";
+    }
   }
-  console.log(tiles);
 
-  //   //////////////////////////////////////////////////
-  //   //// SELECTOR /////
-  const grid = document.querySelector(".grid");
+  for (let i = 0; i < 3; i++) {
+    assignImages(i, imagePairMaker(ImgArray, pairOccurence, ImgArrayPaired));
+  }
 
-  //   /////////////////////////////////////////////////
-  //create the board
-  function createBoard() {
-    for (let i = 0; i < tiles.length; i++) {
+  /////////////////////////////////////////////////
+  //render the board
+  function renderBoard() {
+    for (let i = 0; i < board.tiles.length; i++) {
       const square = document.createElement("div");
 
       square.innerHTML += `
-            <div class="layer" data-layer-name="${tiles[i].id}" data-layer-type="one">
-              <img src="${tiles[i].layer1.imgURL}" class="image" />
+            <div class="layer" data-layer="one">
+              <img src="${board.tiles[i].layers[0].imgURL}" class="image" />
             </div>
-            <div class="layer" data-layer-name="${tiles[i].id}" data-layer-type="two">
-              <img src="${tiles[i].layer2.imgURL}" class="image" />
+            <div class="layer" data-layer="two">
+              <img src="${board.tiles[i].layers[1].imgURL}" class="image" />
             </div>
-            <div class="layer" data-layer-name="${tiles[i].id}" data-layer-type="three">
-              <img src="${tiles[i].layer3.imgURL}" class="image" />
+            <div class="layer" data-layer="three">
+              <img src="${board.tiles[i].layers[2].imgURL}" class="image" />
             </div>
         `;
       square.setAttribute("class", "square");
       square.setAttribute("id", i);
-      // square.addEventListener("click", selectTile);
       grid.appendChild(square);
+      board.tiles[i].tileSelect = document.getElementById(i);
+      board.tiles[i].attachEventHandlers();
     }
   }
 
-  createBoard();
+  renderBoard();
+
   //   //////////////////////////////////////////////////
   //   //// FUNCTION /////
   //   //check array for matches
@@ -162,18 +200,8 @@ document.addEventListener("DOMContentLoaded", () => {
   //     }
   //   }
 
-  //   let selectedTile = "-1"; // initially nothing is selected
-
   //   function selectTile() {
-  //     ///toggling selected Tile class
-  //     if (selectedTile == -1) {
-  //       //skip the first round
-  //     } else if (this.getAttribute("id") !== selectedTile) {
-  //       document.getElementById(selectedTile).classList.remove("currentTile"); ///remove highlight to previous square
-  //     }
-  //     selectedTile = this.getAttribute("id"); // storing current selection
-  //     this.classList.add("currentTile"); ///add highlight to current square
-
+  //
   //     squaresChosen.push(this.getAttribute("id")); // add chosen square ids to array
 
   //     for (let i = 0; i < 3; i++) {
@@ -190,6 +218,4 @@ document.addEventListener("DOMContentLoaded", () => {
   //       layersChosen.splice(0, 3);
   //     }
   //   }
-
-  //   createBoard();
 });
