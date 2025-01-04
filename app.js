@@ -9,15 +9,34 @@ document.addEventListener("DOMContentLoaded", () => {
   //// Tiles /////
 
   class Tile {
-    constructor(id) {
+    constructor(id, type) {
       this.id = id; //based on grid order
+      this.type = type; //deck
       this.layers = [
-        { level: 1, imgURL: "images/level1/", matched: false },
-        { level: 2, imgURL: "images/level2/", matched: false },
-        { level: 3, imgURL: "images/level3/", matched: false },
+        {
+          layer: 0,
+          imgURL: "images/layer0/",
+          matched: false,
+          id: 0,
+          matched: false,
+        },
+        {
+          layer: 1,
+          imgURL: "images/layer1/",
+          matched: false,
+          id: 0,
+          matched: false,
+        },
+        {
+          layer: 2,
+          imgURL: "images/layer2/",
+          matched: false,
+          id: 0,
+          matched: false,
+        },
       ];
 
-      this.background = 1;
+      this.background = ["images/background/1.png", "images/background/2.png"];
       this.tileSelect = document.getElementById(id);
       this.current = false;
       this.highlight = false;
@@ -28,35 +47,101 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     handleClick(event) {
+      board.saveSelected(this);
       board.clearHighlight();
       this.highlight = true;
+      this.choosen = true;
       this.renderHighlight();
 
-      this.current = true;
+      board.compareSelection(this);
     }
     renderHighlight() {
       this.tileSelect.classList.add("currentTile"); ///add highlight to current square
     }
   }
 
-  ////////////////////////////
-  //generate 30 tile objects
-
+  ///////////
   const board = {
     width: 5,
     height: 6,
 
     tiles: [],
+    ImgArray: [1, 2, 3, 4, 5, 6],
+    pairOccurence: [2, 4, 4, 6, 6, 8],
+    clickedTiles: [],
     matchedLayers: [],
     get size() {
       return this.width * this.height;
     },
 
-    boardInitialiser: function () {
-      for (let i = 1; i <= this.size; i++) {
-        this.tiles[i - 1] = new Tile(i);
+    ///create 30 tile objects
+    initialiser: function () {
+      for (let i = 0; i <= this.size - 1; i++) {
+        this.tiles[i] = new Tile(i, "none");
       }
       return this.tiles;
+    },
+
+    ///shuffle algo
+    shuffle: function (arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    },
+
+    ///make 15 pairs of 1 to 6 numbers at random
+    imagePairMaker: function (arr, occurance) {
+      const images = [];
+      occurance = this.shuffle([...occurance]);
+      for (let i = 0; i < arr.length; i++) {
+        for (let x = 0; x < occurance[i]; x++) {
+          images.push(arr[i]);
+        }
+      }
+      return this.shuffle(images);
+    },
+
+    ///make URLs and add them to the tiles
+    assignImages: function (layer, source) {
+      for (let i = 0; i < this.tiles.length; i++) {
+        this.tiles[i].layers[layer].imgURL += source[i];
+        this.tiles[i].layers[layer].imgURL += ".png";
+        this.tiles[i].layers[layer].id += source[i];
+      }
+    },
+
+    ///render board
+    renderer: function () {
+      ///assigning 3 sets of paired images to the 3 layers
+      for (let i = 0; i < 3; i++) {
+        this.assignImages(
+          i,
+          this.imagePairMaker(
+            this.ImgArray,
+            this.pairOccurence,
+            this.ImgArrayPaired
+          )
+        );
+      }
+      ///make DOM
+      for (let i = 0; i < this.tiles.length; i++) {
+        const square = document.createElement("div");
+        for (let x = 0; x < 3; x++) {
+          square.innerHTML += `<div class="layer" div id="${i}_${x}_${this.tiles[i].layers[x].id}" >
+            <img src="${this.tiles[i].layers[x].imgURL}" class="image" />
+          </div>`;
+        }
+        ///add attributes
+        square.setAttribute("class", "square");
+        square.setAttribute("id", i);
+        grid.appendChild(square);
+
+        ///add eventhandlers
+        this.tiles[i].tileSelect = document.getElementById(i);
+        this.tiles[i].attachEventHandlers();
+      }
     },
 
     clearHighlight: function () {
@@ -64,158 +149,63 @@ document.addEventListener("DOMContentLoaded", () => {
         if (this.tiles[i].highlight === true) {
           this.tiles[i].highlight === false;
           document.getElementById(i).classList.remove("currentTile");
-          console.log("highlight");
+        }
+      }
+    },
+
+    saveSelected: function (tile) {
+      //don't allow double click
+      if (
+        this.clickedTiles.length !== 0 &&
+        this.clickedTiles[this.clickedTiles.length - 1].id === tile.id
+      ) {
+        console.log("you can't click double");
+      } else {
+        this.clickedTiles.push(tile);
+      }
+      console.log(this.clickedTiles);
+    },
+
+    compareSelection: function (tile) {
+      //after the first 2 are saved
+      if (this.clickedTiles.length >= 2) {
+        for (let x = 0; x < tile.layers.length; x++) {
+          let layers;
+          //match the last 2 in the select array have matching images on the same layers, and those have not yet been found
+          if (
+            tile.layers[x].id ===
+              this.clickedTiles[this.clickedTiles.length - 2].layers[x].id &&
+            tile.layers[x].matched == false &&
+            this.clickedTiles[this.clickedTiles.length - 2].layers[x].matched ==
+              false
+          ) {
+            console.log(tile.id, "match");
+            //remove image from view
+
+            document
+              .getElementById(`${tile.id}_${x}_${tile.layers[x].id}`)
+              .classList.add("hidden");
+            document
+              .getElementById(
+                `${this.clickedTiles[this.clickedTiles.length - 2].id}_${x}_${
+                  this.clickedTiles[this.clickedTiles.length - 2].layers[x].id
+                }`
+              )
+              .classList.add("hidden");
+            //disable layer
+            this.clickedTiles[this.clickedTiles.length - 2].layers[
+              x
+            ].matched = true;
+            tile.layers[x].matched = true;
+          }
         }
       }
     },
 
     // setBackground: function () {}
   };
-  board.boardInitialiser();
 
-  // console.log(board.tiles);
-
-  ////////////////////////////
-  // shuffle
-  function shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  ////////////////////////////
-  // image pairs
-  let ImgArray = [1, 2, 3, 4, 5, 6];
-  let pairOccurence = [2, 4, 4, 6, 6, 8];
-  const ImgArrayPaired = [];
-
-  function imagePairMaker(arr, occurance, output) {
-    occurance = shuffle([...occurance]);
-    for (let i = 0; i < arr.length; i++) {
-      for (let x = 0; x < occurance[i]; x++) {
-        output.push(arr[i]);
-      }
-    }
-    return shuffle(output);
-  }
-
-  function assignImages(layer, source) {
-    for (let i = 0; i < board.tiles.length; i++) {
-      board.tiles[i].layers[layer].imgURL += source[i];
-      board.tiles[i].layers[layer].imgURL += ".png";
-    }
-  }
-
-  for (let i = 0; i < 3; i++) {
-    assignImages(i, imagePairMaker(ImgArray, pairOccurence, ImgArrayPaired));
-  }
-
-  /////////////////////////////////////////////////
-  //render the board
-  function renderBoard() {
-    for (let i = 0; i < board.tiles.length; i++) {
-      const square = document.createElement("div");
-
-      square.innerHTML += `
-            <div class="layer" data-layer="one">
-              <img src="${board.tiles[i].layers[0].imgURL}" class="image" />
-            </div>
-            <div class="layer" data-layer="two">
-              <img src="${board.tiles[i].layers[1].imgURL}" class="image" />
-            </div>
-            <div class="layer" data-layer="three">
-              <img src="${board.tiles[i].layers[2].imgURL}" class="image" />
-            </div>
-        `;
-      square.setAttribute("class", "square");
-      square.setAttribute("id", i);
-      grid.appendChild(square);
-      board.tiles[i].tileSelect = document.getElementById(i);
-      board.tiles[i].attachEventHandlers();
-    }
-  }
-
-  renderBoard();
-
-  //   //////////////////////////////////////////////////
-  //   //// FUNCTION /////
-  //   //check array for matches
-  //   const check_duplicate_in_array = (input_array) => {
-  //     const duplicates = input_array.filter(
-  //       (item, index) => input_array.indexOf(item) !== index
-  //     );
-  //     return Array.from(new Set(duplicates));
-  //   };
-
-  //   //check game for matches
-  //   function checkForMatch() {
-  //     // const tiles = document.querySelectorAll("img");
-  //     let matches = check_duplicate_in_array(layersChosen);
-  //     //check if it is already contained in the array (false click)
-
-  //     //win condition
-  //     // if (layersFound == 45) {
-  //     //   alert("wow, you won");
-  //     // }
-
-  //     if (squaresChosen[0] === squaresChosen[1]) {
-  //       //selected the same one
-  //       console.log("dont't select the same");
-  //     } else if (matches.length !== 0) {
-  //       //found a match
-
-  //       // matches.forEach((m) => {
-  //       //   if (layersFound.includes(m)) {
-  //       //     matches = matches.filter((m) => !forDeletion.includes(m));
-
-  //       //     console.log("false match");
-  //       //   }
-  //       // });
-  //       console.log("It is a match");
-  //       layersFound.push(...matches);
-
-  //       for (let i = 0; i < 3; i++) {
-  //         for (let x = 0; x < matches.length; x++) {
-  //           if (
-  //             document
-  //               .getElementById(squaresChosen[0])
-  //               .children[i].getAttribute("data-layer-name") == matches[x]
-  //           ) {
-  //             document
-  //               .getElementById(squaresChosen[0])
-  //               .children[i].classList.add("hidden");
-
-  //             document
-  //               .getElementById(squaresChosen[1])
-  //               .children[i].classList.add("hidden");
-  //           }
-  //         }
-  //       }
-  //     } else {
-  //       //if you guess wrong
-  //       alert("Sorry this is not a match, it is game over.");
-  //       //--start over button
-  //     }
-  //   }
-
-  //   function selectTile() {
-  //
-  //     squaresChosen.push(this.getAttribute("id")); // add chosen square ids to array
-
-  //     for (let i = 0; i < 3; i++) {
-  //       layersChosen.push(this.children[i].getAttribute("data-layer-name")); // add chosen layer names to array
-  //     }
-  //     console.log("layersChosen:", layersChosen, "squaresChosen:", squaresChosen);
-
-  //     if (squaresChosen.length === 2) {
-  //       checkForMatch();
-  //     }
-  //     if (squaresChosen.length >= 2) {
-  //       // keep updating to the latest 2 squares
-  //       squaresChosen.shift();
-  //       layersChosen.splice(0, 3);
-  //     }
-  //   }
+  board.initialiser();
+  board.renderer();
+  console.log(board.tiles);
 });
