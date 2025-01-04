@@ -37,9 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ];
 
       this.background = ["images/background/1.png", "images/background/2.png"];
-      this.tileSelect = document.getElementById(id);
-      this.current = false;
-      this.highlight = false;
+      this.tileSelect = document.getElementById(id); // currently clicked
+      // this.current = false;
     }
 
     attachEventHandlers() {
@@ -47,16 +46,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     handleClick(event) {
-      board.saveSelected(this);
-      board.clearHighlight();
-      this.highlight = true;
-      this.choosen = true;
-      this.renderHighlight();
-
-      board.compareSelection(this);
-    }
-    renderHighlight() {
-      this.tileSelect.classList.add("currentTile"); ///add highlight to current square
+      if (board.clickedTiles.length < 1) {
+        //first click
+        this.tileSelect.classList.add("currentTile"); ///add highlight to current square
+        board.saveSelected(this);
+      } else {
+        //second click onwards
+        this.tileSelect.classList.add("currentTile"); ///add highlight to current square
+        board.saveSelected(this);
+        board.clearHighlight();
+        board.compareSelection(this);
+        board.goAnywhere(this);
+      }
     }
   }
 
@@ -66,10 +67,11 @@ document.addEventListener("DOMContentLoaded", () => {
     height: 6,
 
     tiles: [],
-    ImgArray: [1, 2, 3, 4, 5, 6],
+    imgArray: [1, 2, 3, 4, 5, 6],
     pairOccurence: [2, 4, 4, 6, 6, 8],
     clickedTiles: [],
     matchedLayers: [],
+    lastClicked: 100,
     get size() {
       return this.width * this.height;
     },
@@ -118,11 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let i = 0; i < 3; i++) {
         this.assignImages(
           i,
-          this.imagePairMaker(
-            this.ImgArray,
-            this.pairOccurence,
-            this.ImgArrayPaired
-          )
+          this.imagePairMaker(this.imgArray, this.pairOccurence)
         );
       }
       ///make DOM
@@ -145,12 +143,9 @@ document.addEventListener("DOMContentLoaded", () => {
     },
 
     clearHighlight: function () {
-      for (let i = 0; i < this.tiles.length; i++) {
-        if (this.tiles[i].highlight === true) {
-          this.tiles[i].highlight === false;
-          document.getElementById(i).classList.remove("currentTile");
-        }
-      }
+      document
+        .getElementById(this.lastClicked.id)
+        .classList.remove("currentTile");
     },
 
     saveSelected: function (tile) {
@@ -161,48 +156,72 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         console.log("you can't click double");
       } else {
+        //save all tiles that has been clicked into clickedTiles array
         this.clickedTiles.push(tile);
+
+        //save the id of the tile that was clicked before the current one
+        if (this.clickedTiles.length > 1) {
+          this.lastClicked = this.clickedTiles[this.clickedTiles.length - 2];
+        }
       }
-      console.log(this.clickedTiles);
+      // console.log("clickedtiles", this.clickedTiles);
+      // console.log("lastclicked", this.lastClicked);
+      // console.log("current", tile.id);
+    },
+
+    goAnywhere: function (tile) {
+      let allMatched = [];
+      //is the current tile empty
+      for (let x = 0; x < tile.layers.length; x++) {
+        if (tile.layers[x].matched === true) {
+          allMatched.push("yes");
+        }
+      }
+      // console.log(allMatched, tile.id);
+
+      if (allMatched.length === tile.layers.length) {
+        console.log("go anywhere");
+      }
     },
 
     compareSelection: function (tile) {
-      //after the first 2 are saved
-      if (this.clickedTiles.length >= 2) {
-        for (let x = 0; x < tile.layers.length; x++) {
-          let layers;
-          //match the last 2 in the select array have matching images on the same layers, and those have not yet been found
-          if (
-            tile.layers[x].id ===
-              this.clickedTiles[this.clickedTiles.length - 2].layers[x].id &&
-            tile.layers[x].matched == false &&
-            this.clickedTiles[this.clickedTiles.length - 2].layers[x].matched ==
-              false
-          ) {
-            console.log(tile.id, "match");
-            //remove image from view
+      for (let x = 0; x < tile.layers.length; x++) {
+        //see if the last 2 in the select array have matching images on the same layers, and that those have not yet been found
+        if (
+          tile.layers[x].id === this.lastClicked.layers[x].id &&
+          tile.layers[x].matched == false &&
+          this.lastClicked.layers[x].matched == false
+        ) {
+          //remove image from view
+          document
+            .getElementById(`${tile.id}_${x}_${tile.layers[x].id}`)
+            .classList.add("hidden");
+          document
+            .getElementById(
+              `${this.lastClicked.id}_${x}_${this.lastClicked.layers[x].id}`
+            )
+            .classList.add("hidden");
 
-            document
-              .getElementById(`${tile.id}_${x}_${tile.layers[x].id}`)
-              .classList.add("hidden");
-            document
-              .getElementById(
-                `${this.clickedTiles[this.clickedTiles.length - 2].id}_${x}_${
-                  this.clickedTiles[this.clickedTiles.length - 2].layers[x].id
-                }`
-              )
-              .classList.add("hidden");
-            //disable layer
-            this.clickedTiles[this.clickedTiles.length - 2].layers[
-              x
-            ].matched = true;
-            tile.layers[x].matched = true;
-          }
+          //disable layer
+          this.lastClicked.layers[x].matched = true;
+          tile.layers[x].matched = true;
         }
       }
     },
 
     // setBackground: function () {}
+  };
+
+  const timer = {
+    active: false,
+    startTime: 10,
+
+    // initialiser: function () {
+    //   for (let i = 0; i <= this.size - 1; i++) {
+    //     this.tiles[i] = new Tile(i, "none");
+    //   }
+    //   return this.tiles;
+    // },
   };
 
   board.initialiser();
