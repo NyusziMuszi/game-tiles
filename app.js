@@ -5,8 +5,29 @@ document.addEventListener("DOMContentLoaded", () => {
   //// SELECTOR /////
   const grid = document.querySelector(".grid");
 
+  // const clock = document.getElementById("timer");
+
+  // const minutesSpan = clock.querySelector(".minutes");
+  // const secondsSpan = clock.querySelector(".seconds");
+
   //////////////////////////////////////////////////
-  //// Tiles /////
+
+  const audio = {
+    doubleClick:
+      "sounds/short-success-sound-glockenspiel-treasure-video-game-6346.mp3",
+    lose: "sounds/game-over-arcade-6435.mp3",
+    singleMatch: "sounds/ui-click-97915.mp3",
+    doubleMatch: "sounds/1569137762_4d8517ff53a75ac.mp3",
+    win: "sounds/game-bonus-144751.mp3",
+
+    timeIsRunningOut:
+      "sounds/short-success-sound-glockenspiel-treasure-video-game-6346.mp3",
+
+    soundEffectPlay: function (type) {
+      const sound = new Audio(type);
+      sound.play();
+    },
+  };
 
   class Tile {
     constructor(id, type) {
@@ -15,28 +36,31 @@ document.addEventListener("DOMContentLoaded", () => {
       this.layers = [
         {
           layer: 0,
-          imgURL: "images/layer0/",
+          imgURL: `images/${type}/layer0/`,
           matched: false,
-          id: 0,
+          imgID: 0,
           matched: false,
         },
         {
           layer: 1,
-          imgURL: "images/layer1/",
+          imgURL: `images/${type}/layer1/`,
           matched: false,
-          id: 0,
+          imgID: 0,
           matched: false,
         },
         {
           layer: 2,
-          imgURL: "images/layer2/",
+          imgURL: `images/${type}/layer2/`,
           matched: false,
-          id: 0,
+          imgID: 0,
           matched: false,
         },
       ];
 
-      this.background = ["images/background/1.png", "images/background/2.png"];
+      this.background = [
+        `images/${type}/background/1.png`,
+        `images/${type}/background/2.png`,
+      ];
       this.tileSelect = document.getElementById(id); // currently clicked
       // this.current = false;
     }
@@ -46,23 +70,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     handleClick(event) {
-      if (board.clickedTiles.length < 1) {
+      if (Board.clickedTiles.length < 1) {
         //first click
         this.tileSelect.classList.add("currentTile"); ///add highlight to current square
-        board.saveSelected(this);
+        Board.saveSelected(this);
       } else {
         //second click onwards
+        Board.checkDoubleClick(this);
         this.tileSelect.classList.add("currentTile"); ///add highlight to current square
-        board.saveSelected(this);
-        board.clearHighlight();
-        board.compareSelection(this);
-        board.goAnywhere(this);
+        Board.saveSelected(this);
+
+        Board.clearHighlight(); ///remove highlight from previous square
+        Board.compareSelection(this);
+        Board.goAnywhere(this);
+        Board.stateOutcome(this);
       }
     }
   }
 
   ///////////
-  const board = {
+  const Board = {
     width: 5,
     height: 6,
 
@@ -72,14 +99,21 @@ document.addEventListener("DOMContentLoaded", () => {
     clickedTiles: [],
     matchedLayers: [],
     lastClicked: 100,
+    lastMatchTileID: 100,
+    lastMatchLayerID: [],
+    lastMatchImgID: [],
+    state: "start",
+    // currentState: ["normal", "double", "win", "lose"],
+
     get size() {
       return this.width * this.height;
     },
+    //
 
     ///create 30 tile objects
     initialiser: function () {
       for (let i = 0; i <= this.size - 1; i++) {
-        this.tiles[i] = new Tile(i, "none");
+        this.tiles[i] = new Tile(i, 2);
       }
       return this.tiles;
     },
@@ -110,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let i = 0; i < this.tiles.length; i++) {
         this.tiles[i].layers[layer].imgURL += source[i];
         this.tiles[i].layers[layer].imgURL += ".png";
-        this.tiles[i].layers[layer].id += source[i];
+        this.tiles[i].layers[layer].imgID += source[i];
       }
     },
 
@@ -126,19 +160,42 @@ document.addEventListener("DOMContentLoaded", () => {
       ///make DOM
       for (let i = 0; i < this.tiles.length; i++) {
         const square = document.createElement("div");
+
+        //background
+        square.innerHTML += `<div class="layer">
+        <img src="${this.tiles[i].background[i % 2]}" class="image" />
+      </div>`;
+
+        //layers
         for (let x = 0; x < 3; x++) {
-          square.innerHTML += `<div class="layer" div id="${i}_${x}_${this.tiles[i].layers[x].id}" >
+          square.innerHTML += `<div class="layer" div id="${i}_${x}_${this.tiles[i].layers[x].imgID}" >
             <img src="${this.tiles[i].layers[x].imgURL}" class="image" />
           </div>`;
         }
+
         ///add attributes
         square.setAttribute("class", "square");
         square.setAttribute("id", i);
+
         grid.appendChild(square);
 
         ///add eventhandlers
         this.tiles[i].tileSelect = document.getElementById(i);
         this.tiles[i].attachEventHandlers();
+      }
+    },
+    //////////////////
+    //////////////////
+    //////////////////
+    //////////////////
+
+    saveSelected: function (tile) {
+      //save all tiles that has been clicked into clickedTiles array
+      this.clickedTiles.push(tile);
+
+      //save the tile that was clicked before the current one
+      if (this.clickedTiles.length > 1) {
+        this.lastClicked = this.clickedTiles[this.clickedTiles.length - 2];
       }
     },
 
@@ -148,25 +205,10 @@ document.addEventListener("DOMContentLoaded", () => {
         .classList.remove("currentTile");
     },
 
-    saveSelected: function (tile) {
-      //don't allow double click
-      if (
-        this.clickedTiles.length !== 0 &&
-        this.clickedTiles[this.clickedTiles.length - 1].id === tile.id
-      ) {
-        console.log("you can't click double");
-      } else {
-        //save all tiles that has been clicked into clickedTiles array
-        this.clickedTiles.push(tile);
-
-        //save the id of the tile that was clicked before the current one
-        if (this.clickedTiles.length > 1) {
-          this.lastClicked = this.clickedTiles[this.clickedTiles.length - 2];
-        }
+    checkDoubleClick: function (tile) {
+      if (this.clickedTiles[this.clickedTiles.length - 1].id === tile.id) {
+        this.state = "doubleClick";
       }
-      // console.log("clickedtiles", this.clickedTiles);
-      // console.log("lastclicked", this.lastClicked);
-      // console.log("current", tile.id);
     },
 
     goAnywhere: function (tile) {
@@ -186,45 +228,92 @@ document.addEventListener("DOMContentLoaded", () => {
 
     compareSelection: function (tile) {
       for (let x = 0; x < tile.layers.length; x++) {
-        //see if the last 2 in the select array have matching images on the same layers, and that those have not yet been found
+        //match, that has not been found yet
         if (
-          tile.layers[x].id === this.lastClicked.layers[x].id &&
+          tile.layers[x].imgID === this.lastClicked.layers[x].imgID &&
           tile.layers[x].matched == false &&
           this.lastClicked.layers[x].matched == false
         ) {
-          //remove image from view
-          document
-            .getElementById(`${tile.id}_${x}_${tile.layers[x].id}`)
-            .classList.add("hidden");
-          document
-            .getElementById(
-              `${this.lastClicked.id}_${x}_${this.lastClicked.layers[x].id}`
-            )
-            .classList.add("hidden");
-
-          //disable layer
-          this.lastClicked.layers[x].matched = true;
-          tile.layers[x].matched = true;
+          this.lastMatchTileID = tile.id;
+          this.lastMatchLayerID.push(x);
+          this.lastMatchImgID.push(this.lastClicked.layers[x].imgID);
+          this.state = "match";
         }
+      }
+      if (this.lastMatchLayerID.length === 0) {
+        this.state = "lose";
+      }
+    },
+    stateOutcome: function (tile) {
+      switch (this.state) {
+        case "match":
+          console.log("match");
+
+          //remove image from view
+          for (let i = 0; i < this.lastMatchLayerID.length; i++) {
+            console.log(
+              `${tile.id}_${this.lastMatchLayerID[i]}_${this.lastMatchImgID[i]}`
+            );
+            document
+              .getElementById(
+                `${tile.id}_${this.lastMatchLayerID[i]}_${this.lastMatchImgID[i]}`
+              )
+              .classList.add("hidden");
+            document
+              .getElementById(
+                `${this.lastClicked.id}_${this.lastMatchLayerID[i]}_${this.lastMatchImgID[i]}`
+              )
+              .classList.add("hidden");
+
+            //disable layer
+            this.lastClicked.layers[this.lastMatchLayerID[i]].matched = true;
+            tile.layers[this.lastMatchLayerID[i]].matched = true;
+          }
+          //play success audio
+          if (this.lastMatchLayerID.length < 2) {
+            console.log("single", this.lastMatchLayerID.length);
+            audio.soundEffectPlay(audio.singleMatch);
+          } else {
+            console.log("double", this.lastMatchLayerID.length);
+            audio.soundEffectPlay(audio.doubleMatch);
+          }
+
+          //clear lastMatchLayerID
+          this.lastMatchLayerID = [];
+          this.lastMatchImgID = [];
+
+          break;
+
+        case "double":
+          console.log("double");
+          audio.soundEffectPlay(audio.doubleClick);
+
+          break;
+        case "goAnywhere":
+          console.log("goAnywhere");
+          audio.soundEffectPlay(audio.doubleClick);
+
+          break;
+        case "win":
+          console.log("win");
+          audio.soundEffectPlay(audio.win);
+
+          break;
+        case "lose":
+          console.log("lose");
+          audio.soundEffectPlay(audio.lose);
+          //display overlay
+          //restart button
+          //all properties reloaded
+
+          break;
       }
     },
 
     // setBackground: function () {}
   };
 
-  const timer = {
-    active: false,
-    startTime: 10,
-
-    // initialiser: function () {
-    //   for (let i = 0; i <= this.size - 1; i++) {
-    //     this.tiles[i] = new Tile(i, "none");
-    //   }
-    //   return this.tiles;
-    // },
-  };
-
-  board.initialiser();
-  board.renderer();
-  console.log(board.tiles);
+  Board.initialiser();
+  Board.renderer();
+  console.log(Board.tiles);
 });
