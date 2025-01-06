@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   //////////////////////////////////////////////////
   //// SELECTOR /////
   const grid = document.querySelector(".grid");
+  const overlay = document.querySelector("#overlay");
 
   // const clock = document.getElementById("timer");
 
@@ -292,9 +293,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (counter === this.tiles.length) {
         this.state = "win";
-        console.log("win");
+
         audio.soundEffectPlay(audio.win);
       }
+    },
+    generateMessage: function (content) {
+      overlay.classList.remove("hidden");
+
+      const message = document.createElement("p");
+      const btn = document.createElement("BUTTON");
+
+      message.innerHTML += content;
+      btn.innerHTML += "Restart";
+
+      ///add attributes
+      message.setAttribute("class", "message");
+
+      overlay.appendChild(message);
+      overlay.appendChild(btn);
     },
 
     stateOutcome: function (tile) {
@@ -316,6 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
               .classList.add("hidden");
           }
           this.detectEmptyTile(tile);
+
           //go anywhere
           if (tile.matched === true) {
             // console.log("before", this.clickedTiles);
@@ -323,32 +340,31 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("go anywhere");
             // console.log("after", this.clickedTiles);
           }
+
           //play success audio
           if (this.lastMatchLayerID.length < 2) {
             audio.soundEffectPlay(audio.singleMatch);
           } else {
             audio.soundEffectPlay(audio.doubleMatch);
           }
+          //detect win
           this.detectWin();
 
           //clear lastMatchLayerID
           this.lastMatchLayerID = [];
           this.lastMatchImgID = [];
-
           break;
 
-        // case "win":
-        //   console.log("win");
-        //   audio.soundEffectPlay(audio.win);
+        case "win":
+          console.log("win");
+          audio.soundEffectPlay(audio.win);
+          this.generateMessage("You Won :)");
+          break;
 
-        //   break;
         case "lose":
           console.log("lose");
           audio.soundEffectPlay(audio.lose);
-          //display overlay
-          //restart button
-          //all properties reloaded
-
+          this.generateMessage("You lost :(");
           break;
       }
     },
