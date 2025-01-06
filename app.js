@@ -13,8 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   //////////////////////////////////////////////////
 
   const audio = {
-    doubleClick:
-      "sounds/short-success-sound-glockenspiel-treasure-video-game-6346.mp3",
+    doubleClick: "sounds/mixkit-negative-tone-interface-tap-2569.wav",
     lose: "sounds/game-over-arcade-6435.mp3",
     singleMatch: "sounds/ui-click-97915.mp3",
     doubleMatch: "sounds/1569137762_4d8517ff53a75ac.mp3",
@@ -32,7 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
   class Tile {
     constructor(id, type) {
       this.id = id; //based on grid order
-      this.type = type; //deck
+      this.type = type; //deck style
+      this.matched = false; //is the tile fully cleared?
       this.layers = [
         {
           layer: 0,
@@ -70,20 +70,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     handleClick(event) {
+      this.state = "default";
       if (Board.clickedTiles.length < 1) {
         //first click
         this.tileSelect.classList.add("currentTile"); ///add highlight to current square
         Board.saveSelected(this);
       } else {
         //second click onwards
-        Board.checkDoubleClick(this);
         this.tileSelect.classList.add("currentTile"); ///add highlight to current square
-        Board.saveSelected(this);
+        //check for double clicking
+        if (Board.detectDoubleClick(this)) {
+          console.log("doubleClick");
+          audio.soundEffectPlay(audio.doubleClick);
 
-        Board.clearHighlight(); ///remove highlight from previous square
-        Board.compareSelection(this);
-        Board.goAnywhere(this);
-        Board.stateOutcome(this);
+          return;
+        } else {
+          Board.saveSelected(this);
+
+          Board.clearHighlight(); ///remove highlight from previous square
+          Board.compareSelection(this);
+          // Board.detectWin();
+          Board.stateOutcome(this);
+        }
+
+        // Board.goAnywhere(this);
       }
     }
   }
@@ -96,14 +106,13 @@ document.addEventListener("DOMContentLoaded", () => {
     tiles: [],
     imgArray: [1, 2, 3, 4, 5, 6],
     pairOccurence: [2, 4, 4, 6, 6, 8],
-    clickedTiles: [],
     matchedLayers: [],
+    clickedTiles: [],
     lastClicked: 100,
     lastMatchTileID: 100,
     lastMatchLayerID: [],
     lastMatchImgID: [],
     state: "start",
-    // currentState: ["normal", "double", "win", "lose"],
 
     get size() {
       return this.width * this.height;
@@ -161,10 +170,14 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let i = 0; i < this.tiles.length; i++) {
         const square = document.createElement("div");
 
-        //background
-        square.innerHTML += `<div class="layer">
-        <img src="${this.tiles[i].background[i % 2]}" class="image" />
+        //background if any
+        if (this.tiles[i].background.length > 0) {
+          square.innerHTML += `<div class="layer">
+        <img src="${
+          this.tiles[i].background[i % this.tiles[i].background.length]
+        }" class="image" />
       </div>`;
+        }
 
         //layers
         for (let x = 0; x < 3; x++) {
@@ -197,36 +210,31 @@ document.addEventListener("DOMContentLoaded", () => {
       if (this.clickedTiles.length > 1) {
         this.lastClicked = this.clickedTiles[this.clickedTiles.length - 2];
       }
+      // console.log("saveSelected", this.clickedTiles);
+      // console.log("saveSelected last", this.lastClicked);
     },
 
     clearHighlight: function () {
+      if (this.state == "doubleClick") return;
+
       document
         .getElementById(this.lastClicked.id)
         .classList.remove("currentTile");
     },
 
-    checkDoubleClick: function (tile) {
+    detectDoubleClick: function (tile) {
       if (this.clickedTiles[this.clickedTiles.length - 1].id === tile.id) {
-        this.state = "doubleClick";
-      }
-    },
-
-    goAnywhere: function (tile) {
-      let allMatched = [];
-      //is the current tile empty
-      for (let x = 0; x < tile.layers.length; x++) {
-        if (tile.layers[x].matched === true) {
-          allMatched.push("yes");
-        }
-      }
-      // console.log(allMatched, tile.id);
-
-      if (allMatched.length === tile.layers.length) {
-        console.log("go anywhere");
+        return true;
+      } else {
+        return false;
       }
     },
 
     compareSelection: function (tile) {
+      //if the tile is empty don't compare
+      if (this.lastClicked.matched === true) {
+        return;
+      }
       for (let x = 0; x < tile.layers.length; x++) {
         //match, that has not been found yet
         if (
@@ -234,16 +242,61 @@ document.addEventListener("DOMContentLoaded", () => {
           tile.layers[x].matched == false &&
           this.lastClicked.layers[x].matched == false
         ) {
+          //setting layer to found
+          tile.layers[x].matched = true;
+          this.lastClicked.layers[x].matched = true;
+          //storing info for image removal
           this.lastMatchTileID = tile.id;
+          //could be multiple matches
           this.lastMatchLayerID.push(x);
-          this.lastMatchImgID.push(this.lastClicked.layers[x].imgID);
+          this.lastMatchImgID.push(tile.layers[x].imgID);
+
           this.state = "match";
         }
       }
-      if (this.lastMatchLayerID.length === 0) {
+
+      if (
+        this.lastMatchLayerID.length === 0 &&
+        this.lastClicked.matched !== true
+      ) {
         this.state = "lose";
       }
     },
+
+    detectEmptyTile: function (tile) {
+      //if all matched (empty) set the whole tile to matched (check current and previous)
+      if (
+        tile.layers[0].matched === true &&
+        tile.layers[1].matched === true &&
+        tile.layers[2].matched === true
+      ) {
+        tile.matched = true;
+      }
+
+      if (
+        this.lastClicked.layers[0].matched === true &&
+        this.lastClicked.layers[1].matched === true &&
+        this.lastClicked.layers[2].matched === true
+      ) {
+        //if all matched (empty) set the whole tile to matched
+        this.lastClicked.matched = true;
+      }
+    },
+    detectWin: function () {
+      let counter = 0;
+
+      for (let i = 0; i < this.tiles.length; i++) {
+        if (this.tiles[i].matched) counter++;
+      }
+      console.log(counter);
+
+      if (counter === this.tiles.length) {
+        this.state = "win";
+        console.log("win");
+        audio.soundEffectPlay(audio.win);
+      }
+    },
+
     stateOutcome: function (tile) {
       switch (this.state) {
         case "match":
@@ -251,9 +304,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
           //remove image from view
           for (let i = 0; i < this.lastMatchLayerID.length; i++) {
-            console.log(
-              `${tile.id}_${this.lastMatchLayerID[i]}_${this.lastMatchImgID[i]}`
-            );
             document
               .getElementById(
                 `${tile.id}_${this.lastMatchLayerID[i]}_${this.lastMatchImgID[i]}`
@@ -264,19 +314,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 `${this.lastClicked.id}_${this.lastMatchLayerID[i]}_${this.lastMatchImgID[i]}`
               )
               .classList.add("hidden");
-
-            //disable layer
-            this.lastClicked.layers[this.lastMatchLayerID[i]].matched = true;
-            tile.layers[this.lastMatchLayerID[i]].matched = true;
+          }
+          this.detectEmptyTile(tile);
+          //go anywhere
+          if (tile.matched === true) {
+            // console.log("before", this.clickedTiles);
+            // this.clickedTiles.pop();
+            console.log("go anywhere");
+            // console.log("after", this.clickedTiles);
           }
           //play success audio
           if (this.lastMatchLayerID.length < 2) {
-            console.log("single", this.lastMatchLayerID.length);
             audio.soundEffectPlay(audio.singleMatch);
           } else {
-            console.log("double", this.lastMatchLayerID.length);
             audio.soundEffectPlay(audio.doubleMatch);
           }
+          this.detectWin();
 
           //clear lastMatchLayerID
           this.lastMatchLayerID = [];
@@ -284,21 +337,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
           break;
 
-        case "double":
-          console.log("double");
-          audio.soundEffectPlay(audio.doubleClick);
+        // case "win":
+        //   console.log("win");
+        //   audio.soundEffectPlay(audio.win);
 
-          break;
-        case "goAnywhere":
-          console.log("goAnywhere");
-          audio.soundEffectPlay(audio.doubleClick);
-
-          break;
-        case "win":
-          console.log("win");
-          audio.soundEffectPlay(audio.win);
-
-          break;
+        //   break;
         case "lose":
           console.log("lose");
           audio.soundEffectPlay(audio.lose);
